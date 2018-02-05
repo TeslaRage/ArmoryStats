@@ -2,6 +2,9 @@ class XComGameState_ItemCrit extends XComGameState_Item;
 
 var XComGameState_Item RealkItem;
 
+var string StatsSuffix[ECharStatType.EnumCount];
+var int iArmourStats[ECharStatType.EnumCount];
+
 simulated function X2ItemTemplate GetMyTemplate()
 {
 	local X2CritItemTemplate FakeTemplate;
@@ -42,6 +45,7 @@ simulated function array<UISummary_ItemStat> GetUISummary_DefaultStats()
 	local int i;
 	local X2EquipmentTemplate EquipmentTemplate;
 	local delegate<X2StrategyGameRulesetDataStructures.SpecialRequirementsDelegate> ShouldStatDisplayFn;
+	local array<string> BonusLabels;
 
 	EquipmentTemplate = X2EquipmentTemplate(m_ItemTemplate);
 
@@ -76,6 +80,10 @@ simulated function array<UISummary_ItemStat> GetUISummary_DefaultStats()
 				}
 			}
 		}
+	
+		BonusLabels.AddItem(class'XLocalizedData'.default.CriticalDamageLabel);
+		BonusLabels.AddItem(class'XLocalizedData'.default.GrenadeRangeBonusLabel);
+		BonusLabels.AddItem(class'XLocalizedData'.default.GrenadeRadiusBonusLabel);
 
 		foreach   EquipmentTemplate.UIStatMarkups(StatMarkUp)
 		{
@@ -87,9 +95,18 @@ simulated function array<UISummary_ItemStat> GetUISummary_DefaultStats()
 			
 			// Start with the value from the stat markup
 			Item.Label = StatMarkup.StatLabel;
+			Item.Value=StatMarkup.StatUnit;
 			i=StatChanges.Find('StatType', StatMarkup.StatType);
 			if (i!=INDEX_NONE) Change=StatChanges[i];
 			else Change=EmptyChange;
+			If (Item.Value=="") Item.Value=StatsSuffix[StatMarkup.StatType];
+			if ( 
+					BonusLabels.Find(Item.Label)!=INDEX_NONE
+					|| m_ItemTemplate.IsA('X2AmmoTemplate')
+					|| StatMarkup.StatType!=eStat_Invalid
+					&& !(m_ItemTemplate.IsA('X2ArmorTemplate') && bool(iArmourStats[StatMarkup.StatType]))
+				)
+				Item.ValueState=eUIState_Good;
 			// Then check all of the stat change effects from techs and add any appropriate modifiers
 			if (PopulateWeaponStat(StatMarkup.StatModifier, Change.StatAmount>0, Change.StatAmount, Item) || StatMarkup.bForceShow)
 				Stats.AddItem(Item);
@@ -152,7 +169,6 @@ simulated function array<UISummary_ItemStat> GetUISummary_WeaponStats(optional X
 			Stats.AddItem(Item);
 		}
 		// CritDamage-----------------------------------------------------------------------
-		Item.Label = "Critical Damage";
 		AbilityTestState=new class'XComGameState_Ability';
 		AbilityTestState.SourceWeapon = RealkItem.GetReference();
 		TestEffectParams.ItemStateObjectRef = AbilityTestState.SourceWeapon;
@@ -186,12 +202,11 @@ simulated function array<UISummary_ItemStat> GetUISummary_WeaponStats(optional X
 				}
 			}
 		}
-
+		Item.Label = "Critical Damage";
+		Item.ValueState=eUIState_Good;
+		Item.Value="";
 		if (PopulateWeaponStat(DamageValue.Crit, UpgradeCritDamage>0, UpgradeCritDamage, Item))
-		{
-			Item.Value="+" $ Item.Value;
 			Stats.AddItem(Item);
-		}
 	}
 	//TODO: Item.ValueState = bIsDamageModified ? eUIState_Good : eUIState_Normal;
 			
@@ -199,12 +214,14 @@ simulated function array<UISummary_ItemStat> GetUISummary_WeaponStats(optional X
 	if (m_ItemTemplate.ItemCat == 'weapon' && !WeaponTemplate.bHideClipSizeStat)
 	{
 		Item.Label = class'XLocalizedData'.default.ClipSizeLabel;
+		Item.Value="";
 		if (PopulateWeaponStat(RealkItem.GetItemClipSize(), UpgradeStats.bIsClipSizeModified, UpgradeStats.ClipSize, Item))
 			Stats.AddItem(Item);
 	}
 
 	// Crit -------------------------------------------------------------------------
 	Item.Label = class'XLocalizedData'.default.CriticalChanceLabel;
+	Item.Value="";
 	if (PopulateWeaponStat(RealkItem.GetItemCritChance(), UpgradeStats.bIsCritModified, UpgradeStats.Crit, Item, true))
 		Stats.AddItem(Item);
 
@@ -213,30 +230,33 @@ simulated function array<UISummary_ItemStat> GetUISummary_WeaponStats(optional X
 	{
 		// Aim -------------------------------------------------------------------------
 		Item.Label = class'XLocalizedData'.default.AimLabel;
+		Item.ValueState=eUIState_Good;
+		Item.Value="";
 		if (PopulateWeaponStat(RealkItem.GetItemAimModifier(), UpgradeStats.bIsAimModified, UpgradeStats.Aim, Item, true))
-		{
-			Item.Value="+" $ Item.Value;
 			Stats.AddItem(Item);
-		}
 	}
 
 	// Free Fire
 	Item.Label = class'XLocalizedData'.default.FreeFireLabel;
+	Item.Value="";
 	if (PopulateWeaponStat(0, UpgradeStats.bIsFreeFirePctModified, UpgradeStats.FreeFirePct, Item, true))
 		Stats.AddItem(Item);
 
 	// Free Reloads
 	Item.Label = class'XLocalizedData'.default.FreeReloadLabel;
+	Item.Value="";
 	if (PopulateWeaponStat(0, UpgradeStats.bIsFreeReloadsModified, UpgradeStats.FreeReloads, Item))
 		Stats.AddItem(Item);
 
 	// Miss Damage
 	Item.Label = class'XLocalizedData'.default.MissDamageLabel;
+	Item.Value="";
 	if (PopulateWeaponStat(0, UpgradeStats.bIsMissDamageModified, UpgradeStats.MissDamage, Item))
 		Stats.AddItem(Item);
 
 	// Free Kill
 	Item.Label = class'XLocalizedData'.default.FreeKillLabel;
+	Item.Value="";
 	if (PopulateWeaponStat(0, UpgradeStats.bIsFreeKillPctModified, UpgradeStats.FreeKillPct, Item, true))
 		Stats.AddItem(Item);
 
@@ -302,20 +322,40 @@ simulated function FormatStats(out  array<UISummary_ItemStat> Stats)
 
 simulated function bool PopulateWeaponStat(int Value, bool bIsStatModified, int UpgradeValue, out UISummary_ItemStat Item, optional bool bIsPercent)
 {
-	if (Value > 0)
-	{
-		if (bIsStatModified)
-			Item.Value = AddStatModifier(false, string(Value), UpgradeValue, eUIState_Good, bIsPercent ? "%" : "");
-		else
-			Item.Value = Value $ (bIsPercent ? "%" : "");
+	local string Suffix;
 
-		return true;
-	}
-	else if (bIsStatModified)
+	if (bIsPercent) Suffix="%";
+	else Suffix=Item.Value;
+
+	if (Item.ValueState==eUIState_Good)
 	{
-		Item.Value = AddStatModifier(false, "", UpgradeValue, eUIState_Good, bIsPercent ? "%" : "");
-		return true;
+		Item.Value="+";
+		Item.ValueState=eUIState_Normal;
 	}
-	Item.Value = "0";
-	return false;
+	else Item.Value="";
+
+	if (Value<=0)
+	{
+		Item.Value = "0";
+		return false;
+	}
+
+	if (Value > 0) Item.Value $= Value $ Suffix;
+
+	if (bIsStatModified) Item.Value $= AddStatModifier(false, "", UpgradeValue, eUIState_Good, Suffix);
+
+	return true;
+}
+
+defaultproperties
+{
+	StatsSuffix[eStat_Dodge]="%";
+	StatsSuffix[eStat_Offense]="%";
+	StatsSuffix[eStat_Defense]="%";
+	StatsSuffix[eStat_CritChance]="%";
+	StatsSuffix[eStat_FlankingCritChance]="%";
+	StatsSuffix[eStat_FlankingAimBonus]="%";
+
+	iArmourStats[eStat_Dodge]=1;
+	iArmourStats[eStat_ArmorMitigation]=1;
 }
