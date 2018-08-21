@@ -3,7 +3,9 @@ class XComGameState_ItemCrit extends XComGameState_Item;
 var XComGameState_Item RealkItem;
 
 var string StatsSuffix[ECharStatType.EnumCount];
-var int iArmourStats[ECharStatType.EnumCount];
+var byte bArmourStats[ECharStatType.EnumCount];
+
+var localized string CriticalDamageLabel;
 
 static function XComGameState_Item CreateProxy(XComGameState_Item kItem)
 {
@@ -92,7 +94,7 @@ simulated function array<UISummary_ItemStat> GetUISummary_DefaultStats()
 			}
 		}
 	
-		BonusLabels.AddItem(class'XLocalizedData'.default.CriticalDamageLabel);
+		BonusLabels.AddItem(class'XLocalizedData'.default.CriticalDamageLabel);//This should really have been called CriticalDamageBonusLabel
 		BonusLabels.AddItem(class'XLocalizedData'.default.GrenadeRangeBonusLabel);
 		BonusLabels.AddItem(class'XLocalizedData'.default.GrenadeRadiusBonusLabel);
 
@@ -115,7 +117,7 @@ simulated function array<UISummary_ItemStat> GetUISummary_DefaultStats()
 					BonusLabels.Find(Item.Label)!=INDEX_NONE
 					|| m_ItemTemplate.IsA('X2AmmoTemplate')
 					|| StatMarkup.StatType!=eStat_Invalid
-					&& !(m_ItemTemplate.IsA('X2ArmorTemplate') && bool(iArmourStats[StatMarkup.StatType]))
+					&& !(m_ItemTemplate.IsA('X2ArmorTemplate') && bool(bArmourStats[StatMarkup.StatType]))
 				)
 				Item.ValueState=eUIState_Good;
 			// Then check all of the stat change effects from techs and add any appropriate modifiers
@@ -221,7 +223,7 @@ simulated function array<UISummary_ItemStat> GetUISummary_WeaponStats(optional X
 				}
 			}
 		}
-		Item.Label = "CRITICAL DAMAGE";
+		Item.Label = CriticalDamageLabel;
 		Item.ValueState=eUIState_Good;
 		Item.Value="";
 		if (PopulateWeaponStat(DamageValue.Crit, UpgradeCritDamage>0, UpgradeCritDamage, Item))
@@ -319,7 +321,7 @@ simulated function FormatStats(out  array<UISummary_ItemStat> Stats)
 		BonusLabels.AddItem(class'XLocalizedData'.default.MobilityLabel);
 		BonusLabels.AddItem(class'XLocalizedData'.default.TechBonusLabel);
 		BonusLabels.AddItem(class'XLocalizedData'.default.PsiOffenseBonusLabel);
-		BonusLabels.AddItem(class'XLocalizedData'.default.CriticalDamageLabel);
+		BonusLabels.AddItem(class'XLocalizedData'.default.CriticalDamageLabel);//This should really have been called CriticalDamageBonusLabel
 		BonusLabels.AddItem(class'XLocalizedData'.default.GrenadeRangeBonusLabel);
 		BonusLabels.AddItem(class'XLocalizedData'.default.GrenadeRadiusBonusLabel);
 		if (!m_ItemTemplate.IsA('X2ArmorTemplate'))
@@ -379,6 +381,6 @@ defaultproperties
 	StatsSuffix[eStat_FlankingCritChance]="%";
 	StatsSuffix[eStat_FlankingAimBonus]="%";
 
-	iArmourStats[eStat_Dodge]=1;
-	iArmourStats[eStat_ArmorMitigation]=1;
+	bArmourStats[eStat_Dodge]=1;
+	bArmourStats[eStat_ArmorMitigation]=1;
 }

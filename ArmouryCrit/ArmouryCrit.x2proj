@@ -21,12 +21,42 @@
     <Content Include="Config\XComUI.ini">
       <SubType>Content</SubType>
     </Content>
+    <Content Include="Localization\ArmouryCrit.CHN">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Localization\ArmouryCrit.CHT">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Localization\ArmouryCrit.DEU">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Localization\ArmouryCrit.ESN">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Localization\ArmouryCrit.FRA">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Localization\ArmouryCrit.ITA">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Localization\ArmouryCrit.JPN">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Localization\ArmouryCrit.KOR">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Localization\ArmouryCrit.POL">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Localization\ArmouryCrit.RUS">
+      <SubType>Content</SubType>
+    </Content>
     <Content Include="ReadMe.txt" />
     <Content Include="ModPreview.jpg" />
     <Content Include="Config\XComEditor.ini" />
     <Content Include="Config\XComEngine.ini" />
     <Content Include="Config\XComGame.ini" />
-    <Content Include="Localization\ArmouryCrit.int" />
+    <Content Include="Localization\ArmouryCrit.INT" />
     <Content Include="Src\ArmouryCrit\Classes\CriticalDamage_UIListener.uc">
       <SubType>Content</SubType>
     </Content>
