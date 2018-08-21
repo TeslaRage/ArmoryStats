@@ -1,0 +1,48 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="12.0" DefaultTargets="Default" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Guid>866eebf2-cef2-49c3-8fa8-3d8ddd57a745</Guid>
+    <Name>ArmouryCrit</Name>
+    <Description>Description of My XCOM 2 Mod.</Description>
+    <SteamPublishID>0</SteamPublishID>
+    <AssemblyName>ArmouryCrit</AssemblyName>
+    <RootNamespace>ArmouryCrit</RootNamespace>
+    <ProjectGuid>{557537cb-5f9f-4703-a42e-e400e1907f5a}</ProjectGuid>
+  </PropertyGroup>
+  <ItemGroup>
+    <Folder Include="Config\" />
+    <Folder Include="Content\" />
+    <Folder Include="Localization\" />
+    <Folder Include="Src\" />
+    <Folder Include="Src\ArmouryCrit\" />
+    <Folder Include="Src\ArmouryCrit\Classes\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Config\XComUI.ini">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="ReadMe.txt" />
+    <Content Include="ModPreview.jpg" />
+    <Content Include="Config\XComEditor.ini" />
+    <Content Include="Config\XComEngine.ini" />
+    <Content Include="Config\XComGame.ini" />
+    <Content Include="Localization\ArmouryCrit.int" />
+    <Content Include="Src\ArmouryCrit\Classes\CriticalDamage_UIListener.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\ArmouryCrit\Classes\CriticalDamage_UIListenerUpgrade.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\ArmouryCrit\Classes\UIArmory_WeaponUpgradeStatsCrit.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\ArmouryCrit\Classes\X2CritItemTemplate.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\ArmouryCrit\Classes\X2DownloadableContentInfo_ArmouryCrit.uc" />
+    <Content Include="Src\ArmouryCrit\Classes\XComGameState_ItemCrit.uc">
+      <SubType>Content</SubType>
+    </Content>
+  </ItemGroup>
+  <Import Project="$(MSBuildLocalExtensionPath)\XCOM2.targets" />
+</Project>

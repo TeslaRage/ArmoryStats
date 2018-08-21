@@ -5,14 +5,11 @@ var delegate<UIArmory_LoadoutItemTooltip.OnRequestItem> OriginalRequestItem;
 event OnInit(UIScreen Screen)
 {
 	local UIArmory_LoadoutItemTooltip ToolTip;
-	local UIArmory_Loadout OverrideTestScreen;
 
 	if (ScreenClass==none)
 	{
-		OverrideTestScreen = Screen.Spawn(class 'UIArmory_Loadout');
-		ScreenClass=OverrideTestScreen.Class;
-		OverrideTestScreen.Destroy();
-		/*if (ScreenClass!=Screen.Class)*/ return;
+		ScreenClass=class'UIArmory_Loadout';
+		return;
 	}
 	ToolTip=UIArmory_Loadout(Screen).InfoTooltip;
 	OriginalRequestItem=ToolTip.RequestItem;
@@ -26,15 +23,7 @@ event OnRemoved(UIScreen Screen)
 
 simulated function XComGameState_Item TooltipRequestSwitch( string currentPath )
 {
-	local XComGameState_Item	RealkItem;
-	local XComGameState_ItemCrit FakekItem;
-	RealkItem=OriginalRequestItem(currentPath);
-	if (RealkItem==none)
-		return RealkItem;
-	FakekItem=new class 'XComGameState_ItemCrit';
-	FakekItem.RealkItem=RealkItem;
-	FakekItem.OnCreation(RealkItem.GetMyTemplate());
-	return FakekItem;
+	return class'XComGameState_ItemCrit'.static.CreateProxy(OriginalRequestItem(currentPath));
 }
 
 defaultproperties

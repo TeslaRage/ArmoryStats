@@ -1,5 +1,5 @@
 //---------------------------------------------------------------------------------------
-//  FILE:   XComDownloadableContentInfo_ShowCriticalDamageinArmoury.uc                                    
+//  CLASS:   XComDownloadableContentInfo_ArmouryCrit                       
 //           
 //	Use the X2DownloadableContentInfo class to specify unique mod behavior when the 
 //  player creates a new campaign or loads a saved game.
@@ -8,8 +8,9 @@
 //  Copyright (c) 2016 Firaxis Games, Inc. All rights reserved.
 //---------------------------------------------------------------------------------------
 
-class X2DownloadableContentInfo_ShowCriticalDamageinArmoury extends X2DownloadableContentInfo;
+class X2DownloadableContentInfo_ArmouryCrit extends X2DownloadableContentInfo;
 
+var array<X2Action> ExecutingActions;
 /// <summary>
 /// This method is run if the player loads a saved game that was created prior to this DLC / Mod being installed, and allows the 
 /// DLC / Mod to perform custom processing in response. This will only be called once the first time a player loads a save that was
@@ -209,3 +210,124 @@ class X2DownloadableContentInfo_ShowCriticalDamageinArmoury extends X2Downloadab
 //{
 
 //}
+
+exec function CompleteAllActions()
+{
+	local XComGameStateVisualizationMgr VisMgr;
+	local X2Action Action;
+
+	ExecutingActions.Length=0;
+	VisMgr=`XCOMVISUALIZATIONMGR;
+	foreach VisMgr.AllActors(class'X2Action', Action)
+			Action.ForceComplete();
+}
+
+exec function CompleteExecutingActions()
+{
+	local XComGameStateVisualizationMgr VisMgr;
+	local X2Action Action;
+	local int pass;
+	local Console PlayerConsole;
+
+	PlayerConsole=LocalPlayer(`LOCALPLAYERCONTROLLER.Player).ViewportClient.ViewportConsole;
+	VisMgr=`XCOMVISUALIZATIONMGR;
+	for(pass=0;ExecutingActions.Length==0 || pass==0;pass++)
+	{
+		PlayerConsole.OutputTextLine(`showvar(pass));
+		//`log(`showvar(pass));
+ 		foreach ExecutingActions(Action)
+		{
+			PlayerConsole.OutputTextLine(`showvar(Action));
+			//`log(`showvar(Action));
+			Action.ForceComplete();
+		}
+		ExecutingActions.Length=0;
+		foreach VisMgr.AllActors(class'X2Action', Action)
+			if(Action.GetStateName()=='Executing')
+			{
+				PlayerConsole.OutputTextLine(`showvar(Action));
+				//`log(`showvar(Action));
+				ExecutingActions.AddItem(Action);
+			}
+	}
+}
+
+exec function LogExecutingActions()
+{
+	local XComGameStateVisualizationMgr VisMgr;
+	local X2Action Action;
+	local int pass;
+	local Console PlayerConsole;
+
+	PlayerConsole=LocalPlayer(`LOCALPLAYERCONTROLLER.Player).ViewportClient.ViewportConsole;
+	VisMgr=`XCOMVISUALIZATIONMGR;
+	ExecutingActions.Length=0;
+	foreach VisMgr.AllActors(class'X2Action', Action)
+		if(Action.GetStateName()=='Executing')
+		{
+			//`log(ExecutingActions.Length @ `showvar(Action));
+			PlayerConsole.OutputTextLine(ExecutingActions.Length $ ": " $ Action);
+			ExecutingActions.AddItem(Action);
+		}
+		If (ExecutingActions.Length==0)
+			PlayerConsole.OutputTextLine("No Executing Actions!");
+}
+
+exec function ClearExecutingActionsList()
+{
+	ExecutingActions.Length=0;
+}
+
+exec function ExecutingActionsList()
+{
+	local int i;
+	local Console PlayerConsole;
+
+	PlayerConsole=LocalPlayer(`LOCALPLAYERCONTROLLER.Player).ViewportClient.ViewportConsole;
+	for(i=0;i<ExecutingActions.Length;i++)
+		PlayerConsole.OutputTextLine(i $ ": " $ ExecutingActions[i]);
+	
+}
+
+exec function CompleteAction(optional int i=0)
+{
+	ExecutingActions[i].ForceComplete();
+	ExecutingActions.Remove(i, 1);
+	ExecutingActionsList();
+}
+
+exec function HealUnit()
+{
+	local XComGameState_Effect EffectState;
+	local X2Effect_Persistent PersistentEffect;
+	local XComGameState_Unit Unit;
+	local XComGameState NewGameState;
+	
+	NewGameState = class'XComGameStateContext_ChangeContainer'.static.CreateChangeState("Heal Unit");
+
+	Unit = XComGameState_Unit(NewGameState.ModifyStateObject(class'XComGameState_Unit', `CHEATMGR.Outer.GetActiveUnitStateRef().ObjectID));
+	foreach `XCOMHISTORY.IterateByClassType(class'XComGameState_Effect', EffectState)
+	{
+		if ((EffectState.ApplyEffectParameters.TargetStateObjectRef.ObjectID == Unit.ObjectID))
+		{
+			PersistentEffect = EffectState.GetX2Effect();
+			if (ShouldRemoveEffect(EffectState, PersistentEffect))
+			{
+				EffectState.RemoveEffect(NewGameState, NewGameState, true);
+			}
+		}
+	}
+	`TACTICALRULES.SubmitGameState(NewGameState);
+}
+
+simulated function bool ShouldRemoveEffect(XComGameState_Effect EffectState, X2Effect_Persistent PersistentEffect)
+{
+	local name DamageType;
+
+	foreach PersistentEffect.DamageTypes(DamageType)
+	{
+		if (class'X2Ability_DefaultAbilitySet'.default.MedikitHealEffectTypes.Find(DamageType) != INDEX_NONE)
+			return true;
+	}
+	return false;
+}

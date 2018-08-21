@@ -5,13 +5,24 @@ var XComGameState_Item RealkItem;
 var string StatsSuffix[ECharStatType.EnumCount];
 var int iArmourStats[ECharStatType.EnumCount];
 
+static function XComGameState_Item CreateProxy(XComGameState_Item kItem)
+{
+	local XComGameState_ItemCrit ProxykItem;
+	if (kItem==none)
+		return kItem;
+	ProxykItem=new class 'XComGameState_ItemCrit';
+	ProxykItem.RealkItem=kItem;
+	ProxykItem.OnCreation(kItem.GetMyTemplate());
+	return ProxykItem;
+}
+
 simulated function X2ItemTemplate GetMyTemplate()
 {
-	local X2CritItemTemplate FakeTemplate;
-	FakeTemplate=new class'X2CritItemTemplate';
-	FakeTemplate.RealTemplate= m_ItemTemplate;
-	FakeTemplate.ObjectID=RealkItem.ObjectID;
-	return FakeTemplate;
+	local X2CritItemTemplate ProxyTemplate;
+	ProxyTemplate=new class'X2CritItemTemplate';
+	ProxyTemplate.RealTemplate= m_ItemTemplate;
+	ProxyTemplate.ObjectID=RealkItem.ObjectID;
+	return ProxyTemplate;
 }
 simulated function array<UISummary_TacaticalText> GetUISummary_TacticalText()
 {
@@ -129,6 +140,7 @@ simulated function array<UISummary_ItemStat> GetUISummary_WeaponStats(optional X
 	local X2AbilityTemplateManager AbilityManager;
 	local name AbilityName;
 	local XComGameState_Ability AbilityTestState;
+	local XcomGameState_Effect EffectTestState;
 	local EffectAppliedData TestEffectParams;
 	local X2Effect Effect;
 	local X2Effect_Persistent PersistentEffect;
@@ -171,8 +183,10 @@ simulated function array<UISummary_ItemStat> GetUISummary_WeaponStats(optional X
 		// CritDamage-----------------------------------------------------------------------
 		AbilityTestState=new class'XComGameState_Ability';
 		AbilityTestState.SourceWeapon = RealkItem.GetReference();
+		EffectTestState= new class'XcomGameState_Effect';
 		TestEffectParams.ItemStateObjectRef = AbilityTestState.SourceWeapon;
 		TestEffectParams.AbilityInputContext.ItemObject= AbilityTestState.SourceWeapon;
+		EffectTestState.ApplyEffectParameters=TestEffectParams;
 
 		AbilityManager=class'X2AbilityTemplateManager'.static.GetAbilityTemplateManager();
 
@@ -187,22 +201,27 @@ simulated function array<UISummary_ItemStat> GetUISummary_WeaponStats(optional X
 				foreach AbilityTemplate.AbilityShooterEffects(Effect)
 				{
 					PersistentEffect = X2Effect_Persistent(Effect);
-					TestEffectParams.AbilityResultContext.HitResult = eHit_Crit;
-					UpgradeCritDamage += PersistentEffect.GetAttackingDamageModifier(none, none, none, AbilityTestState, TestEffectParams, DamageValue.Damage);
-					TestEffectParams.AbilityResultContext.HitResult = eHit_Success;
-					UpgradeCritDamage -= PersistentEffect.GetAttackingDamageModifier(none, none, none, AbilityTestState, TestEffectParams, DamageValue.Damage);
+					if (PersistentEffect!=none)
+					{
+						TestEffectParams.AbilityResultContext.HitResult = eHit_Crit;
+						UpgradeCritDamage += PersistentEffect.GetAttackingDamageModifier(EffectTestState, none, none, AbilityTestState, TestEffectParams, DamageValue.Damage);
+						TestEffectParams.AbilityResultContext.HitResult = eHit_Success;
+						UpgradeCritDamage -= PersistentEffect.GetAttackingDamageModifier(EffectTestState, none, none, AbilityTestState, TestEffectParams, DamageValue.Damage);
+					}
 				}
 				foreach AbilityTemplate.AbilityTargetEffects(Effect)
 				{
-					PersistentEffect = X2Effect_Persistent(Effect);
-					TestEffectParams.AbilityResultContext.HitResult = eHit_Crit;
-					UpgradeCritDamage += PersistentEffect.GetAttackingDamageModifier(none, none, none, AbilityTestState, TestEffectParams, DamageValue.Damage + DamageValue.Crit);
-					TestEffectParams.AbilityResultContext.HitResult = eHit_Success;
-					UpgradeCritDamage -= PersistentEffect.GetAttackingDamageModifier(none, none, none, AbilityTestState, TestEffectParams, DamageValue.Damage);
+					if (PersistentEffect!=none)
+					{
+						TestEffectParams.AbilityResultContext.HitResult = eHit_Crit;
+						UpgradeCritDamage += PersistentEffect.GetAttackingDamageModifier(EffectTestState, none, none, AbilityTestState, TestEffectParams, DamageValue.Damage);
+						TestEffectParams.AbilityResultContext.HitResult = eHit_Success;
+						UpgradeCritDamage -= PersistentEffect.GetAttackingDamageModifier(EffectTestState, none, none, AbilityTestState, TestEffectParams, DamageValue.Damage);
+					}
 				}
 			}
 		}
-		Item.Label = "Critical Damage";
+		Item.Label = "CRITICAL DAMAGE";
 		Item.ValueState=eUIState_Good;
 		Item.Value="";
 		if (PopulateWeaponStat(DamageValue.Crit, UpgradeCritDamage>0, UpgradeCritDamage, Item))
@@ -226,15 +245,15 @@ simulated function array<UISummary_ItemStat> GetUISummary_WeaponStats(optional X
 		Stats.AddItem(Item);
 
 	// Ensure that any items which are excluded from stat boosts show values that show up in the Soldier Header
-	if (class'UISoldierHeader'.default.EquipmentExcludedFromStatBoosts.Find(m_ItemTemplate.DataName) == INDEX_NONE)
-	{
+	//if (class'UISoldierHeader'.default.EquipmentExcludedFromStatBoosts.Find(m_ItemTemplate.DataName) == INDEX_NONE)
+	//{
 		// Aim -------------------------------------------------------------------------
 		Item.Label = class'XLocalizedData'.default.AimLabel;
 		Item.ValueState=eUIState_Good;
 		Item.Value="";
 		if (PopulateWeaponStat(RealkItem.GetItemAimModifier(), UpgradeStats.bIsAimModified, UpgradeStats.Aim, Item, true))
 			Stats.AddItem(Item);
-	}
+	//}
 
 	// Free Fire
 	Item.Label = class'XLocalizedData'.default.FreeFireLabel;
@@ -336,8 +355,12 @@ simulated function bool PopulateWeaponStat(int Value, bool bIsStatModified, int 
 
 	if (Value<=0)
 	{
-		Item.Value = "0";
-		return false;
+		if (UpgradeValue==0)
+		{
+			Item.Value = "0";
+			return false;
+		}
+		else Item.Value="";
 	}
 
 	if (Value > 0) Item.Value $= Value $ Suffix;
