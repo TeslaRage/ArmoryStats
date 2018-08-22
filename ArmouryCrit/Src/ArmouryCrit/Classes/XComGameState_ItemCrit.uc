@@ -1,4 +1,18 @@
+//-----------------------------------------------------------
+//	Class:	CriticalDamage_UIListenerUpgrade
+//	Author: Mr. Nice
+//	
+//-----------------------------------------------------------
+// WARNING!! Live Proxy, handle with care! If any of the non-
+// overriden methods or properties not setup in OnCreation()
+// are accessed, BAD THINGS will happen, and God Forbid it
+// ever  actually be commited to a XComGameState!!
+// (Or fed after midnight...)
+//-----------------------------------------------------------
+
 class XComGameState_ItemCrit extends XComGameState_Item;
+
+`include(ArmouryCrit\Src\ModConfigMenuAPI\MCM_API_CfgHelpers.uci)
 
 var XComGameState_Item RealkItem;
 
@@ -7,25 +21,28 @@ var byte bArmourStats[ECharStatType.EnumCount];
 
 var localized string CriticalDamageLabel;
 
-static function XComGameState_Item CreateProxy(XComGameState_Item kItem)
+static function XComGameState_Item CreateProxy(XComGameState_Item kItem, optional StateObjectReference UnitRef)
 {
 	local XComGameState_ItemCrit ProxykItem;
 	if (kItem==none)
 		return kItem;
 	ProxykItem=new class 'XComGameState_ItemCrit';
 	ProxykItem.RealkItem=kItem;
-	ProxykItem.OnCreation(kItem.GetMyTemplate());
+	ProxykItem.m_ItemTemplate=kItem.GetMyTemplate();
+	ProxykItem.OwnerStateObject=UnitRef;
 	return ProxykItem;
 }
 
 simulated function X2ItemTemplate GetMyTemplate()
 {
 	local X2CritItemTemplate ProxyTemplate;
+
 	ProxyTemplate=new class'X2CritItemTemplate';
 	ProxyTemplate.RealTemplate= m_ItemTemplate;
 	ProxyTemplate.ObjectID=RealkItem.ObjectID;
 	return ProxyTemplate;
 }
+
 simulated function array<UISummary_TacaticalText> GetUISummary_TacticalText()
 {
 	return RealkItem.GetUISummary_TacticalText();
@@ -35,6 +52,7 @@ simulated function array<UISummary_TacaticalText> GetUISummary_TacticalTextUpgra
 {
 	return RealkItem.GetUISummary_TacticalTextUpgrades();
 }
+
 simulated function array<UISummary_TacaticalText> GetUISummary_TacticalTextAbilities()
 {
 	return RealkItem.GetUISummary_TacticalTextAbilities();
@@ -112,7 +130,20 @@ simulated function array<UISummary_ItemStat> GetUISummary_DefaultStats()
 			i=StatChanges.Find('StatType', StatMarkup.StatType);
 			if (i!=INDEX_NONE) Change=StatChanges[i];
 			else Change=EmptyChange;
-			If (Item.Value=="") Item.Value=StatsSuffix[StatMarkup.StatType];
+			If (Item.Value=="")
+			{
+				if (StatMarkup.StatType!=eStat_Invalid)
+					Item.Value=StatsSuffix[StatMarkup.StatType];
+				else
+				{
+					Switch(StatMarkup.StatLabel)
+					{
+						case (class'XLocalizedData'.default.BurnChanceLabel):
+						case (class'XLocalizedData'.default.StunChanceLabel):
+							Item.Value="%";
+					}
+				}
+			}
 			if ( 
 					BonusLabels.Find(Item.Label)!=INDEX_NONE
 					|| m_ItemTemplate.IsA('X2AmmoTemplate')
@@ -148,7 +179,8 @@ simulated function array<UISummary_ItemStat> GetUISummary_WeaponStats(optional X
 	local X2Effect_Persistent PersistentEffect;
 
 	local delegate<X2StrategyGameRulesetDataStructures.SpecialRequirementsDelegate> ShouldStatDisplayFn;
-	local int Index, UpgradeCritDamage;
+	local int Index, BonusValue;
+	local XComGameState_Unit OwnerState;
 
 	// Safety check: you need to be a weapon to use this. 
 	WeaponTemplate = X2WeaponTemplate(m_ItemTemplate);
@@ -182,6 +214,8 @@ simulated function array<UISummary_ItemStat> GetUISummary_WeaponStats(optional X
 				Item.Value $= AddStatModifier(false, "", UpgradeStats.Damage, eUIState_Good);
 			Stats.AddItem(Item);
 		}
+		//TODO: Item.ValueState = bIsDamageModified ? eUIState_Good : eUIState_Normal;
+
 		// CritDamage-----------------------------------------------------------------------
 		AbilityTestState=new class'XComGameState_Ability';
 		AbilityTestState.SourceWeapon = RealkItem.GetReference();
@@ -189,6 +223,7 @@ simulated function array<UISummary_ItemStat> GetUISummary_WeaponStats(optional X
 		TestEffectParams.ItemStateObjectRef = AbilityTestState.SourceWeapon;
 		TestEffectParams.AbilityInputContext.ItemObject= AbilityTestState.SourceWeapon;
 		EffectTestState.ApplyEffectParameters=TestEffectParams;
+		OwnerState = XComGameState_Unit(`XCOMHISTORY.GetGameStateForObjectID(OwnerStateObject.ObjectID));
 
 		AbilityManager=class'X2AbilityTemplateManager'.static.GetAbilityTemplateManager();
 
@@ -198,7 +233,8 @@ simulated function array<UISummary_ItemStat> GetUISummary_WeaponStats(optional X
 			if ( X2AbilityTrigger_UnitPostBeginPlay(AbilityTemplate.AbilityTriggers[0])!=none
 				&& X2AbilityTarget_Self(AbilityTemplate.AbilityTargetStyle)!=none )
 			{
-				AbilityTestState.OnCreation(AbilityTemplate);	
+				AbilityTestState.OnCreation(AbilityTemplate);
+				AbilityTestState.InitAbilityForUnit(OwnerState, none);
 				TestEffectParams.AbilityInputContext.AbilityTemplateName = AbilityName;
 				foreach AbilityTemplate.AbilityShooterEffects(Effect)
 				{
@@ -206,19 +242,20 @@ simulated function array<UISummary_ItemStat> GetUISummary_WeaponStats(optional X
 					if (PersistentEffect!=none)
 					{
 						TestEffectParams.AbilityResultContext.HitResult = eHit_Crit;
-						UpgradeCritDamage += PersistentEffect.GetAttackingDamageModifier(EffectTestState, none, none, AbilityTestState, TestEffectParams, DamageValue.Damage);
+						BonusValue += PersistentEffect.GetAttackingDamageModifier(EffectTestState, none, none, AbilityTestState, TestEffectParams, DamageValue.Damage);
 						TestEffectParams.AbilityResultContext.HitResult = eHit_Success;
-						UpgradeCritDamage -= PersistentEffect.GetAttackingDamageModifier(EffectTestState, none, none, AbilityTestState, TestEffectParams, DamageValue.Damage);
+						BonusValue -= PersistentEffect.GetAttackingDamageModifier(EffectTestState, none, none, AbilityTestState, TestEffectParams, DamageValue.Damage);
 					}
 				}
 				foreach AbilityTemplate.AbilityTargetEffects(Effect)
 				{
+					PersistentEffect = X2Effect_Persistent(Effect);
 					if (PersistentEffect!=none)
 					{
 						TestEffectParams.AbilityResultContext.HitResult = eHit_Crit;
-						UpgradeCritDamage += PersistentEffect.GetAttackingDamageModifier(EffectTestState, none, none, AbilityTestState, TestEffectParams, DamageValue.Damage);
+						BonusValue += PersistentEffect.GetAttackingDamageModifier(EffectTestState, none, none, AbilityTestState, TestEffectParams, DamageValue.Damage);
 						TestEffectParams.AbilityResultContext.HitResult = eHit_Success;
-						UpgradeCritDamage -= PersistentEffect.GetAttackingDamageModifier(EffectTestState, none, none, AbilityTestState, TestEffectParams, DamageValue.Damage);
+						BonusValue -= PersistentEffect.GetAttackingDamageModifier(EffectTestState, none, none, AbilityTestState, TestEffectParams, DamageValue.Damage);
 					}
 				}
 			}
@@ -226,13 +263,39 @@ simulated function array<UISummary_ItemStat> GetUISummary_WeaponStats(optional X
 		Item.Label = CriticalDamageLabel;
 		Item.ValueState=eUIState_Good;
 		Item.Value="";
-		if (PopulateWeaponStat(DamageValue.Crit, UpgradeCritDamage>0, UpgradeCritDamage, Item))
+		if (PopulateWeaponStat(DamageValue.Crit, BonusValue>0, BonusValue, Item))
+			Stats.AddItem(Item);
+
+		// Pierce --------------------------------------------------------------------
+		Item.Label = class'XLocalizedData'.default.PierceLabel;
+		Item.Value="";
+		if (PopulateWeaponStat(DamageValue.Pierce, false, 0, Item))
+			Stats.AddItem(Item);
+
+		// Shred --------------------------------------------------------------------
+		Item.Label = class'XLocalizedData'.default.ShredLabel;
+		Item.Value="";
+		if (`GETMCMVAR(SHREDDER_AS_BONUS) && OwnerState.HasSoldierAbility('Shredder') && WeaponTemplate.InventorySlot==eInvSlot_PrimaryWeapon)
+		{
+			Switch(WeaponTemplate.WeaponTech)
+			{
+				case('magnetic'):
+					BonusValue = class'X2Effect_Shredder'.default.MagneticShred;
+					break;
+				case('beam'):
+					BonusValue = class'X2Effect_Shredder'.default.BeamShred;
+					break;
+				default:
+					BonusValue = class'X2Effect_Shredder'.default.ConventionalShred;
+			}
+		}
+		else BonusValue=0;
+		if (PopulateWeaponStat(WeaponTemplate.BaseDamage.Shred, BonusValue>0, BonusValue, Item))
 			Stats.AddItem(Item);
 	}
-	//TODO: Item.ValueState = bIsDamageModified ? eUIState_Good : eUIState_Normal;
-			
+				
 	// Clip Size --------------------------------------------------------------------
-	if (m_ItemTemplate.ItemCat == 'weapon' && !WeaponTemplate.bHideClipSizeStat)
+	if (m_ItemTemplate.ItemCat == 'weapon' && !WeaponTemplate.bHideClipSizeStat && WeaponTemplate.iClipSize>1)
 	{
 		Item.Label = class'XLocalizedData'.default.ClipSizeLabel;
 		Item.Value="";
@@ -247,6 +310,9 @@ simulated function array<UISummary_ItemStat> GetUISummary_WeaponStats(optional X
 		Stats.AddItem(Item);
 
 	// Ensure that any items which are excluded from stat boosts show values that show up in the Soldier Header
+	// Mr.Nice: Whelp, Firaxis screwed up and inverted the logic, so aim bonuses either show up in both places or neither!
+	// No advantage to hiding it even if it is shown in the Soldier Header, since people will be used to primary weapon
+	// aim bonuses showing in both places, so just dump the condition entirely so that secondary weapons show their aim bonus.
 	//if (class'UISoldierHeader'.default.EquipmentExcludedFromStatBoosts.Find(m_ItemTemplate.DataName) == INDEX_NONE)
 	//{
 		// Aim -------------------------------------------------------------------------
@@ -290,8 +356,10 @@ simulated function array<UISummary_ItemStat> GetUISummary_WeaponStats(optional X
 		{
 			continue;
 		}
-
-		if (StatMarkup.StatModifier != 0 || StatMarkup.bForceShow)
+		//Mr. Nice: Shred now always shows if the weapon shreds, so don't need it from StatMarkups
+		if ((StatMarkup.StatModifier != 0 || StatMarkup.bForceShow)
+			&& StatMarkup.StatLabel!=class'XLocalizedData'.default.ShredLabel
+			&& StatMarkup.StatLabel!=class'XLocalizedData'.default.PierceLabel )
 		{
 			Item.Label = StatMarkup.StatLabel;
 			Item.Value = string(StatMarkup.StatModifier) $ StatMarkup.StatUnit;
@@ -301,45 +369,6 @@ simulated function array<UISummary_ItemStat> GetUISummary_WeaponStats(optional X
 
 	return Stats;
 }
-
-simulated function FormatStats(out  array<UISummary_ItemStat> Stats)
-{
-	local int i;
-
-	local array<string> PercentLabels;
-	local array<string> BonusLabels;
-
-	PercentLabels.AddItem(class'XLocalizedData'.default.DodgeLabel);
-	PercentLabels.AddItem(class'XLocalizedData'.default.AimLabel);
-	PercentLabels.AddItem(class'XLocalizedData'.default.CriticalChanceBonusLabel);
-	PercentLabels.AddItem(class'XLocalizedData'.default.CriticalChanceLabel);
-	PercentLabels.AddItem(class'XLocalizedData'.default.CritChanceLabel);
-	
-	if (!m_ItemTemplate.IsA('X2AmmoTemplate'))
-	{
-		BonusLabels.AddItem(class'XLocalizedData'.default.HealthLabel);
-		BonusLabels.AddItem(class'XLocalizedData'.default.MobilityLabel);
-		BonusLabels.AddItem(class'XLocalizedData'.default.TechBonusLabel);
-		BonusLabels.AddItem(class'XLocalizedData'.default.PsiOffenseBonusLabel);
-		BonusLabels.AddItem(class'XLocalizedData'.default.CriticalDamageLabel);//This should really have been called CriticalDamageBonusLabel
-		BonusLabels.AddItem(class'XLocalizedData'.default.GrenadeRangeBonusLabel);
-		BonusLabels.AddItem(class'XLocalizedData'.default.GrenadeRadiusBonusLabel);
-		if (!m_ItemTemplate.IsA('X2ArmorTemplate'))
-		{
-			BonusLabels.AddItem(class'XLocalizedData'.default.ArmorLabel);
-			BonusLabels.AddItem(class'XLocalizedData'.default.DodgeLabel);
-		}
-	}
-
-	for (i=0; i<Stats.Length; i++)
-	{
-		if (BonusLabels.Length==0 || BonusLabels.Find(Stats[i].Label)!=INDEX_NONE)
-			Stats[i].Value="+" $ Stats[i].Value;
-		if (PercentLabels.Find(Stats[i].Label)!=INDEX_NONE)
-			Stats[i].Value $= "%";
-	}
-}
-
 
 simulated function bool PopulateWeaponStat(int Value, bool bIsStatModified, int UpgradeValue, out UISummary_ItemStat Item, optional bool bIsPercent)
 {
@@ -364,8 +393,7 @@ simulated function bool PopulateWeaponStat(int Value, bool bIsStatModified, int 
 		}
 		else Item.Value="";
 	}
-
-	if (Value > 0) Item.Value $= Value $ Suffix;
+	else Item.Value $= Value $ Suffix;
 
 	if (bIsStatModified) Item.Value $= AddStatModifier(false, "", UpgradeValue, eUIState_Good, Suffix);
 
@@ -380,7 +408,7 @@ defaultproperties
 	StatsSuffix[eStat_CritChance]="%";
 	StatsSuffix[eStat_FlankingCritChance]="%";
 	StatsSuffix[eStat_FlankingAimBonus]="%";
-
+	StatsSuffix[eStat_ArmorChance]="%";
 	bArmourStats[eStat_Dodge]=1;
 	bArmourStats[eStat_ArmorMitigation]=1;
 }

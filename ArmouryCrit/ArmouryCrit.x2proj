@@ -16,8 +16,13 @@
     <Folder Include="Src\" />
     <Folder Include="Src\ArmouryCrit\" />
     <Folder Include="Src\ArmouryCrit\Classes\" />
+    <Folder Include="Src\ModConfigMenuAPI\" />
+    <Folder Include="Src\ModConfigMenuAPI\Classes\" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="Config\XComArmouryCrit_DEFAULT.ini">
+      <SubType>Content</SubType>
+    </Content>
     <Content Include="Config\XComUI.ini">
       <SubType>Content</SubType>
     </Content>
@@ -55,8 +60,16 @@
     <Content Include="ModPreview.jpg" />
     <Content Include="Config\XComEditor.ini" />
     <Content Include="Config\XComEngine.ini" />
-    <Content Include="Config\XComGame.ini" />
     <Content Include="Localization\ArmouryCrit.INT" />
+    <Content Include="Src\ArmouryCrit\Classes\ArmouryCrit_Defaults.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\ArmouryCrit\Classes\ArmouryCrit_MCMScreen.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\ArmouryCrit\Classes\ArmouryCrit_MCMScreenListener.uc">
+      <SubType>Content</SubType>
+    </Content>
     <Content Include="Src\ArmouryCrit\Classes\CriticalDamage_UIListener.uc">
       <SubType>Content</SubType>
     </Content>
@@ -69,8 +82,52 @@
     <Content Include="Src\ArmouryCrit\Classes\X2CritItemTemplate.uc">
       <SubType>Content</SubType>
     </Content>
-    <Content Include="Src\ArmouryCrit\Classes\X2DownloadableContentInfo_ArmouryCrit.uc" />
+    <Content Include="Src\ArmouryCrit\Classes\X2DownloadableContentInfo_ArmouryCrit.uc">
+      <SubType>Content</SubType>
+    </Content>
     <Content Include="Src\ArmouryCrit\Classes\XComGameState_ItemCrit.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\ModConfigMenuAPI\Classes\MCM_API.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\ModConfigMenuAPI\Classes\MCM_API_Button.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\ModConfigMenuAPI\Classes\MCM_API_Checkbox.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\ModConfigMenuAPI\Classes\MCM_API_Dropdown.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\ModConfigMenuAPI\Classes\MCM_API_Instance.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\ModConfigMenuAPI\Classes\MCM_API_Label.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\ModConfigMenuAPI\Classes\MCM_API_Setting.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\ModConfigMenuAPI\Classes\MCM_API_SettingsGroup.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\ModConfigMenuAPI\Classes\MCM_API_SettingsPage.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\ModConfigMenuAPI\Classes\MCM_API_Slider.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\ModConfigMenuAPI\Classes\MCM_API_Spinner.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\ModConfigMenuAPI\Classes\MCM_OptionsScreen.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\ModConfigMenuAPI\MCM_API_CfgHelpers.uci">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\ModConfigMenuAPI\MCM_API_Includes.uci">
       <SubType>Content</SubType>
     </Content>
   </ItemGroup>
