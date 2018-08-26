@@ -29,7 +29,7 @@ static function XComGameState_Item CreateProxy(XComGameState_Item kItem, optiona
 	ProxykItem=new class 'XComGameState_ItemCrit';
 	ProxykItem.RealkItem=kItem;
 	ProxykItem.m_ItemTemplate=kItem.GetMyTemplate();
-	ProxykItem.OwnerStateObject=UnitRef;
+	ProxykItem.OwnerStateObject=UnitRef.ObjectID!=0 ? UnitRef : kItem.OwnerStateObject;
 	return ProxykItem;
 }
 
@@ -56,6 +56,11 @@ simulated function array<UISummary_TacaticalText> GetUISummary_TacticalTextUpgra
 simulated function array<UISummary_TacaticalText> GetUISummary_TacticalTextAbilities()
 {
 	return RealkItem.GetUISummary_TacticalTextAbilities();
+}
+
+simulated function array<X2WeaponUpgradeTemplate> GetMyWeaponUpgradeTemplates()
+{
+	return RealkItem.GetMyWeaponUpgradeTemplates();
 }
 
 simulated function array<UISummary_ItemStat> GetUISummary_DefaultStats()
@@ -166,18 +171,19 @@ simulated function array<UISummary_ItemStat> GetUISummary_WeaponStats(optional X
 	local array<UISummary_ItemStat> Stats; 
 	local UISummary_ItemStat		Item;
 	local UIStatMarkup				StatMarkup;
-	local WeaponDamageValue         DamageValue;
+	local WeaponDamageValue         DamageValue, MinUpgradeDamage, MaxUpgradeDamage;
 	local EUISummary_WeaponStats    UpgradeStats;
 	local X2WeaponTemplate WeaponTemplate;
 	local X2AbilityTemplate AbilityTemplate;
 	local X2AbilityTemplateManager AbilityManager;
 	local name AbilityName;
-	local XComGameState_Ability AbilityTestState;
+	local XComGameState_AbilityCrit AbilityTestState;
 	local XcomGameState_Effect EffectTestState;
 	local EffectAppliedData TestEffectParams;
 	local X2Effect Effect;
 	local X2Effect_Persistent PersistentEffect;
-
+	local X2Effect_ApplyWeaponDamage WepDamEffect;
+	local StateObjectReference EmptyRef;
 	local delegate<X2StrategyGameRulesetDataStructures.SpecialRequirementsDelegate> ShouldStatDisplayFn;
 	local int Index, BonusValue;
 	local XComGameState_Unit OwnerState;
@@ -186,7 +192,6 @@ simulated function array<UISummary_ItemStat> GetUISummary_WeaponStats(optional X
 	WeaponTemplate = X2WeaponTemplate(m_ItemTemplate);
 	if( WeaponTemplate == none ) 
 		return Stats; 
-
 	if(PreviewUpgradeStats != none) 
 		UpgradeStats = RealkItem.GetUpgradeModifiersForUI(PreviewUpgradeStats);
 	else
@@ -195,28 +200,39 @@ simulated function array<UISummary_ItemStat> GetUISummary_WeaponStats(optional X
 	// Damage-----------------------------------------------------------------------
 	if (!WeaponTemplate.bHideDamageStat)
 	{
+		AbilityTestState=new class'XComGameState_AbilityCrit';
+		AbilityTestState.ProxyWeapon=self;
+		WepDamEffect=new class'X2Effect_ApplyWeaponDamage';
+		WepDamEffect.GetDamagePreview(EmptyRef, AbilityTestState, false, MinUpgradeDamage, MaxUpgradeDamage, Index);
+
 		// NormalDamage-----------------------------------------------------------------------
 		Item.Label = class'XLocalizedData'.default.DamageLabel;
 		RealkItem.GetBaseWeaponDamageValue(none, DamageValue);
-		if (DamageValue.Damage == 0 && UpgradeStats.bIsDamageModified)
-		{
-			Item.Value = AddStatModifier(false, "", UpgradeStats.Damage, eUIState_Good);
-			Stats.AddItem(Item);
-		}
-		else if (DamageValue.Damage > 0)
+
+		if (DamageValue.Damage > 0)
 		{
 			if (DamageValue.Spread > 0 || DamageValue.PlusOne > 0)
 				Item.Value = string(DamageValue.Damage - DamageValue.Spread) $ "-" $ string(DamageValue.Damage + DamageValue.Spread + (DamageValue.PlusOne > 0) ? 1 : 0);
 			else
 				Item.Value = string(DamageValue.Damage);
-
-			if (UpgradeStats.bIsDamageModified)
-				Item.Value $= AddStatModifier(false, "", UpgradeStats.Damage, eUIState_Good);
-			Stats.AddItem(Item);
 		}
+		if (UpgradeStats.bIsDamageModified || MaxUpgradeDamage.Damage!=0 || MinUpgradeDamage.Damage!=0)
+		{
+			if(MinUpgradeDamage.Damage!=MaxUpgradeDamage.Damage)
+			{
+				Item.Value $= AddStatModifier(false, "", UpgradeStats.Damage+MinUpgradeDamage.Damage) $ "-" $
+					class'UIUtilities_Text'.static.GetColoredText(string(UpgradeStats.Damage+MaxUpgradeDamage.Damage), UpgradeStats.Damage+MaxUpgradeDamage.Damage>0 ? eUIState_Good : eUIState_Bad);
+			}
+			else
+				Item.Value $= AddStatModifier(false, "", UpgradeStats.Damage);
+		}
+
+
+		Stats.AddItem(Item);
 		//TODO: Item.ValueState = bIsDamageModified ? eUIState_Good : eUIState_Normal;
 
 		// CritDamage-----------------------------------------------------------------------
+		/*
 		AbilityTestState=new class'XComGameState_Ability';
 		AbilityTestState.SourceWeapon = RealkItem.GetReference();
 		EffectTestState= new class'XcomGameState_Effect';
@@ -260,40 +276,49 @@ simulated function array<UISummary_ItemStat> GetUISummary_WeaponStats(optional X
 				}
 			}
 		}
+		*/
 		Item.Label = CriticalDamageLabel;
 		Item.ValueState=eUIState_Good;
 		Item.Value="";
-		if (PopulateWeaponStat(DamageValue.Crit, BonusValue>0, BonusValue, Item))
+		if (PopulateWeaponStat(DamageValue.Crit, MinUpgradeDamage.Crit!=0, MinUpgradeDamage.Crit, Item))
 			Stats.AddItem(Item);
 
 		// Pierce --------------------------------------------------------------------
 		Item.Label = class'XLocalizedData'.default.PierceLabel;
 		Item.Value="";
-		if (PopulateWeaponStat(DamageValue.Pierce, false, 0, Item))
+		if (PopulateWeaponStat(DamageValue.Pierce, MinUpgradeDamage.Pierce!=0, MinUpgradeDamage.Pierce, Item))
 			Stats.AddItem(Item);
 
 		// Shred --------------------------------------------------------------------
 		Item.Label = class'XLocalizedData'.default.ShredLabel;
 		Item.Value="";
+
+		OwnerState = XComGameState_Unit(`XCOMHISTORY.GetGameStateForObjectID(OwnerStateObject.ObjectID));
 		if (`GETMCMVAR(SHREDDER_AS_BONUS) && OwnerState.HasSoldierAbility('Shredder') && WeaponTemplate.InventorySlot==eInvSlot_PrimaryWeapon)
 		{
 			Switch(WeaponTemplate.WeaponTech)
 			{
 				case('magnetic'):
-					BonusValue = class'X2Effect_Shredder'.default.MagneticShred;
+					MinUpgradeDamage.Shred += class'X2Effect_Shredder'.default.MagneticShred;
 					break;
 				case('beam'):
-					BonusValue = class'X2Effect_Shredder'.default.BeamShred;
+					MinUpgradeDamage.Shred += class'X2Effect_Shredder'.default.BeamShred;
 					break;
 				default:
-					BonusValue = class'X2Effect_Shredder'.default.ConventionalShred;
+					MinUpgradeDamage.Shred += class'X2Effect_Shredder'.default.ConventionalShred;
 			}
 		}
-		else BonusValue=0;
-		if (PopulateWeaponStat(WeaponTemplate.BaseDamage.Shred, BonusValue>0, BonusValue, Item))
+
+		if (PopulateWeaponStat(WeaponTemplate.BaseDamage.Shred, MinUpgradeDamage.Shred!=0, MinUpgradeDamage.Shred, Item))
+			Stats.AddItem(Item);
+
+		// Rupture --------------------------------------------------------------------
+		Item.Label = Caps(Localize("BulletShred X2AbilityTemplate", "LocFriendlyName", "XComGame"));
+		Item.Value="";
+		if (PopulateWeaponStat(DamageValue.Rupture, MinUpgradeDamage.Rupture!=0, MinUpgradeDamage.Rupture, Item))
 			Stats.AddItem(Item);
 	}
-				
+							
 	// Clip Size --------------------------------------------------------------------
 	if (m_ItemTemplate.ItemCat == 'weapon' && !WeaponTemplate.bHideClipSizeStat && WeaponTemplate.iClipSize>1)
 	{
@@ -395,9 +420,14 @@ simulated function bool PopulateWeaponStat(int Value, bool bIsStatModified, int 
 	}
 	else Item.Value $= Value $ Suffix;
 
-	if (bIsStatModified) Item.Value $= AddStatModifier(false, "", UpgradeValue, eUIState_Good, Suffix);
+	if (bIsStatModified) Item.Value $= AddStatModifier(false, "", UpgradeValue,, Suffix);
 
 	return true;
+}
+
+simulated function string AddStatModifier(bool bAddCommaSeparator, string Label, int Value, optional int ColorState = eUIState_Normal, optional string PostFix, optional bool bSymbolOnRight)
+{
+	return Super.AddStatModifier(bAddCommaSeparator, Label, Value, Value<0 ? eUIState_Bad : eUIState_Good, PostFix, bSymbolOnRight);
 }
 
 defaultproperties

@@ -85,6 +85,9 @@
     <Content Include="Src\ArmouryCrit\Classes\X2DownloadableContentInfo_ArmouryCrit.uc">
       <SubType>Content</SubType>
     </Content>
+    <Content Include="Src\ArmouryCrit\Classes\XComGameState_AbilityCrit.uc">
+      <SubType>Content</SubType>
+    </Content>
     <Content Include="Src\ArmouryCrit\Classes\XComGameState_ItemCrit.uc">
       <SubType>Content</SubType>
     </Content>
