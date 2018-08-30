@@ -7,7 +7,7 @@
 // GetItemFriendlyName() is safe to access.
 //-----------------------------------------------------------
 
-class X2CritItemTemplate extends X2ItemTemplate;
+class X2CritItemTemplate extends X2WeaponTemplate;
 
 var X2ItemTemplate RealTemplate;
 

@@ -15,6 +15,7 @@ class XComGameState_ItemCrit extends XComGameState_Item;
 `include(ArmouryCrit\Src\ModConfigMenuAPI\MCM_API_CfgHelpers.uci)
 
 var XComGameState_Item RealkItem;
+var X2CritItemTemplate ProxyTemplate;
 
 var string StatsSuffix[ECharStatType.EnumCount];
 var byte bArmourStats[ECharStatType.EnumCount];
@@ -30,16 +31,15 @@ static function XComGameState_Item CreateProxy(XComGameState_Item kItem, optiona
 	ProxykItem.RealkItem=kItem;
 	ProxykItem.m_ItemTemplate=kItem.GetMyTemplate();
 	ProxykItem.OwnerStateObject=UnitRef.ObjectID!=0 ? UnitRef : kItem.OwnerStateObject;
+	ProxykItem.ProxyTemplate=new class'X2CritItemTemplate';
+	ProxykItem.ProxyTemplate.RealTemplate= ProxykItem.m_ItemTemplate;
+	ProxykItem.ProxyTemplate.ObjectID=kItem.ObjectID;
+	ProxykItem.ProxyTemplate.WeaponTech=X2WeaponTemplate(ProxykItem.m_ItemTemplate).WeaponTech;
 	return ProxykItem;
 }
 
 simulated function X2ItemTemplate GetMyTemplate()
 {
-	local X2CritItemTemplate ProxyTemplate;
-
-	ProxyTemplate=new class'X2CritItemTemplate';
-	ProxyTemplate.RealTemplate= m_ItemTemplate;
-	ProxyTemplate.ObjectID=RealkItem.ObjectID;
 	return ProxyTemplate;
 }
 
@@ -171,22 +171,21 @@ simulated function array<UISummary_ItemStat> GetUISummary_WeaponStats(optional X
 	local array<UISummary_ItemStat> Stats; 
 	local UISummary_ItemStat		Item;
 	local UIStatMarkup				StatMarkup;
-	local WeaponDamageValue         DamageValue, MinUpgradeDamage, MaxUpgradeDamage;
+	local WeaponDamageValue         DamageValue, UpgradeDamageValue;
 	local EUISummary_WeaponStats    UpgradeStats;
 	local X2WeaponTemplate WeaponTemplate;
 	local X2AbilityTemplate AbilityTemplate;
 	local X2AbilityTemplateManager AbilityManager;
 	local name AbilityName;
-	local XComGameState_AbilityCrit AbilityTestState;
+	local XComGameState_Ability AbilityTestState;
 	local XcomGameState_Effect EffectTestState;
 	local EffectAppliedData TestEffectParams;
 	local X2Effect Effect;
 	local X2Effect_Persistent PersistentEffect;
-	local X2Effect_ApplyWeaponDamage WepDamEffect;
-	local StateObjectReference EmptyRef;
 	local delegate<X2StrategyGameRulesetDataStructures.SpecialRequirementsDelegate> ShouldStatDisplayFn;
-	local int Index, BonusValue;
+	local int Index, EffectDamage;
 	local XComGameState_Unit OwnerState;
+	local XComOnlineEventMgr EventManager;
 
 	// Safety check: you need to be a weapon to use this. 
 	WeaponTemplate = X2WeaponTemplate(m_ItemTemplate);
@@ -200,11 +199,98 @@ simulated function array<UISummary_ItemStat> GetUISummary_WeaponStats(optional X
 	// Damage-----------------------------------------------------------------------
 	if (!WeaponTemplate.bHideDamageStat)
 	{
-		AbilityTestState=new class'XComGameState_AbilityCrit';
-		AbilityTestState.ProxyWeapon=self;
-		WepDamEffect=new class'X2Effect_ApplyWeaponDamage';
-		WepDamEffect.GetDamagePreview(EmptyRef, AbilityTestState, false, MinUpgradeDamage, MaxUpgradeDamage, Index);
 
+		EventManager = `ONLINEEVENTMGR;
+		for(Index = EventManager.GetNumDLC() - 1; Index >= 0; Index--)
+		{
+			if(EventManager.GetDLCNames(Index)=='X2WOTCCommunityHighlander')
+			{
+				UpgradeDamageValue=UpgradeStats.DamageValue;
+				UpgradeStats.Damage+=UpgradeDamageValue.Damage;
+				break;
+			}
+		}
+
+		OwnerState = XComGameState_Unit(`XCOMHISTORY.GetGameStateForObjectID(OwnerStateObject.ObjectID));
+		AbilityTestState=new class'XComGameState_Ability';
+		AbilityTestState.InitAbilityForUnit(OwnerState, none);
+		AbilityTestState.SourceWeapon = RealkItem.GetReference();
+		EffectTestState= new class'XcomGameState_Effect';
+		TestEffectParams.ItemStateObjectRef = AbilityTestState.SourceWeapon;
+		TestEffectParams.AbilityInputContext.ItemObject= AbilityTestState.SourceWeapon;
+		EffectTestState.ApplyEffectParameters=TestEffectParams;
+		
+		AbilityManager=class'X2AbilityTemplateManager'.static.GetAbilityTemplateManager();
+
+		foreach WeaponTemplate.Abilities(AbilityName)
+		{
+			AbilityTemplate=AbilityManager.FindAbilityTemplate(AbilityName);
+			if ( X2AbilityTrigger_UnitPostBeginPlay(AbilityTemplate.AbilityTriggers[0])!=none
+				&& X2AbilityTarget_Self(AbilityTemplate.AbilityTargetStyle)!=none )
+			{
+				AbilityTestState.OnCreation(AbilityTemplate);
+				TestEffectParams.AbilityInputContext.AbilityTemplateName = AbilityName;
+				foreach AbilityTemplate.AbilityShooterEffects(Effect)
+				{
+					PersistentEffect = X2Effect_Persistent(Effect);
+					if (PersistentEffect!=none)
+					{
+						TestEffectParams.AbilityResultContext.HitResult = eHit_Crit;
+						UpgradeDamageValue.Crit += PersistentEffect.GetAttackingDamageModifier(EffectTestState, none, none, AbilityTestState, TestEffectParams, DamageValue.Damage);
+						TestEffectParams.AbilityResultContext.HitResult = eHit_Success;
+						EffectDamage += PersistentEffect.GetAttackingDamageModifier(EffectTestState, none, none, AbilityTestState, TestEffectParams, DamageValue.Damage);
+					}
+				}
+				foreach AbilityTemplate.AbilityTargetEffects(Effect)
+				{
+					PersistentEffect = X2Effect_Persistent(Effect);
+					if (PersistentEffect!=none)
+					{
+						TestEffectParams.AbilityResultContext.HitResult = eHit_Crit;
+						UpgradeDamageValue.Crit += PersistentEffect.GetAttackingDamageModifier(EffectTestState, none, none, AbilityTestState, TestEffectParams, DamageValue.Damage);
+						TestEffectParams.AbilityResultContext.HitResult = eHit_Success;
+						EffectDamage += PersistentEffect.GetAttackingDamageModifier(EffectTestState, none, none, AbilityTestState, TestEffectParams, DamageValue.Damage);
+					}
+				}
+			}
+		}
+		foreach RealkItem.m_arrWeaponUpgradeTemplates(PreviewUpgradeStats)
+		{
+			foreach PreviewUpgradeStats.BonusAbilities(AbilityName)
+			{
+				AbilityTemplate=AbilityManager.FindAbilityTemplate(AbilityName);
+				if ( X2AbilityTrigger_UnitPostBeginPlay(AbilityTemplate.AbilityTriggers[0])!=none
+					&& X2AbilityTarget_Self(AbilityTemplate.AbilityTargetStyle)!=none )
+				{
+					AbilityTestState.OnCreation(AbilityTemplate);
+					TestEffectParams.AbilityInputContext.AbilityTemplateName = AbilityName;
+					foreach AbilityTemplate.AbilityShooterEffects(Effect)
+					{
+						PersistentEffect = X2Effect_Persistent(Effect);
+						if (PersistentEffect!=none)
+						{
+							TestEffectParams.AbilityResultContext.HitResult = eHit_Crit;
+							UpgradeDamageValue.Crit += PersistentEffect.GetAttackingDamageModifier(EffectTestState, none, none, AbilityTestState, TestEffectParams, DamageValue.Damage);
+							TestEffectParams.AbilityResultContext.HitResult = eHit_Success;
+							EffectDamage += PersistentEffect.GetAttackingDamageModifier(EffectTestState, none, none, AbilityTestState, TestEffectParams, DamageValue.Damage);
+						}
+					}
+					foreach AbilityTemplate.AbilityTargetEffects(Effect)
+					{
+						PersistentEffect = X2Effect_Persistent(Effect);
+						if (PersistentEffect!=none)
+						{
+							TestEffectParams.AbilityResultContext.HitResult = eHit_Crit;
+							UpgradeDamageValue.Crit += PersistentEffect.GetAttackingDamageModifier(EffectTestState, none, none, AbilityTestState, TestEffectParams, DamageValue.Damage);
+							TestEffectParams.AbilityResultContext.HitResult = eHit_Success;
+							EffectDamage += PersistentEffect.GetAttackingDamageModifier(EffectTestState, none, none, AbilityTestState, TestEffectParams, DamageValue.Damage);
+						}
+					}
+				}
+			}
+		}
+		UpgradeDamageValue.Crit-=EffectDamage;
+		UpgradeStats.Damage+=EffectDamage;
 		// NormalDamage-----------------------------------------------------------------------
 		Item.Label = class'XLocalizedData'.default.DamageLabel;
 		RealkItem.GetBaseWeaponDamageValue(none, DamageValue);
@@ -216,106 +302,56 @@ simulated function array<UISummary_ItemStat> GetUISummary_WeaponStats(optional X
 			else
 				Item.Value = string(DamageValue.Damage);
 		}
-		if (UpgradeStats.bIsDamageModified || MaxUpgradeDamage.Damage!=0 || MinUpgradeDamage.Damage!=0)
-		{
-			if(MinUpgradeDamage.Damage!=MaxUpgradeDamage.Damage)
-			{
-				Item.Value $= AddStatModifier(false, "", UpgradeStats.Damage+MinUpgradeDamage.Damage) $ "-" $
-					class'UIUtilities_Text'.static.GetColoredText(string(UpgradeStats.Damage+MaxUpgradeDamage.Damage), UpgradeStats.Damage+MaxUpgradeDamage.Damage>0 ? eUIState_Good : eUIState_Bad);
-			}
-			else
-				Item.Value $= AddStatModifier(false, "", UpgradeStats.Damage);
-		}
+		if (UpgradeDamageValue.Spread!=0)
+			Item.Value $= AddStatModifier(false, "", UpgradeStats.Damage-UpgradeDamageValue.Spread) $ "-" $
+				class'UIUtilities_Text'.static.GetColoredText(string(UpgradeStats.Damage+UpgradeDamageValue.Spread), UpgradeStats.Damage+UpgradeDamageValue.Spread>0 ? eUIState_Good : eUIState_Bad);
+		else if (UpgradeStats.Damage!=0)
+			Item.Value $= AddStatModifier(false, "", UpgradeStats.Damage);
 
 
 		Stats.AddItem(Item);
 		//TODO: Item.ValueState = bIsDamageModified ? eUIState_Good : eUIState_Normal;
 
 		// CritDamage-----------------------------------------------------------------------
-		/*
-		AbilityTestState=new class'XComGameState_Ability';
-		AbilityTestState.SourceWeapon = RealkItem.GetReference();
-		EffectTestState= new class'XcomGameState_Effect';
-		TestEffectParams.ItemStateObjectRef = AbilityTestState.SourceWeapon;
-		TestEffectParams.AbilityInputContext.ItemObject= AbilityTestState.SourceWeapon;
-		EffectTestState.ApplyEffectParameters=TestEffectParams;
-		OwnerState = XComGameState_Unit(`XCOMHISTORY.GetGameStateForObjectID(OwnerStateObject.ObjectID));
-
-		AbilityManager=class'X2AbilityTemplateManager'.static.GetAbilityTemplateManager();
-
-		foreach WeaponTemplate.Abilities(AbilityName)
-		{
-			AbilityTemplate=AbilityManager.FindAbilityTemplate(AbilityName);
-			if ( X2AbilityTrigger_UnitPostBeginPlay(AbilityTemplate.AbilityTriggers[0])!=none
-				&& X2AbilityTarget_Self(AbilityTemplate.AbilityTargetStyle)!=none )
-			{
-				AbilityTestState.OnCreation(AbilityTemplate);
-				AbilityTestState.InitAbilityForUnit(OwnerState, none);
-				TestEffectParams.AbilityInputContext.AbilityTemplateName = AbilityName;
-				foreach AbilityTemplate.AbilityShooterEffects(Effect)
-				{
-					PersistentEffect = X2Effect_Persistent(Effect);
-					if (PersistentEffect!=none)
-					{
-						TestEffectParams.AbilityResultContext.HitResult = eHit_Crit;
-						BonusValue += PersistentEffect.GetAttackingDamageModifier(EffectTestState, none, none, AbilityTestState, TestEffectParams, DamageValue.Damage);
-						TestEffectParams.AbilityResultContext.HitResult = eHit_Success;
-						BonusValue -= PersistentEffect.GetAttackingDamageModifier(EffectTestState, none, none, AbilityTestState, TestEffectParams, DamageValue.Damage);
-					}
-				}
-				foreach AbilityTemplate.AbilityTargetEffects(Effect)
-				{
-					PersistentEffect = X2Effect_Persistent(Effect);
-					if (PersistentEffect!=none)
-					{
-						TestEffectParams.AbilityResultContext.HitResult = eHit_Crit;
-						BonusValue += PersistentEffect.GetAttackingDamageModifier(EffectTestState, none, none, AbilityTestState, TestEffectParams, DamageValue.Damage);
-						TestEffectParams.AbilityResultContext.HitResult = eHit_Success;
-						BonusValue -= PersistentEffect.GetAttackingDamageModifier(EffectTestState, none, none, AbilityTestState, TestEffectParams, DamageValue.Damage);
-					}
-				}
-			}
-		}
-		*/
+		
 		Item.Label = CriticalDamageLabel;
 		Item.ValueState=eUIState_Good;
 		Item.Value="";
-		if (PopulateWeaponStat(DamageValue.Crit, MinUpgradeDamage.Crit!=0, MinUpgradeDamage.Crit, Item))
+		if (PopulateWeaponStat(DamageValue.Crit, UpgradeDamageValue.Crit!=0, UpgradeDamageValue.Crit, Item))
 			Stats.AddItem(Item);
 
 		// Pierce --------------------------------------------------------------------
 		Item.Label = class'XLocalizedData'.default.PierceLabel;
 		Item.Value="";
-		if (PopulateWeaponStat(DamageValue.Pierce, MinUpgradeDamage.Pierce!=0, MinUpgradeDamage.Pierce, Item))
+		if (PopulateWeaponStat(DamageValue.Pierce, UpgradeDamageValue.Pierce!=0, UpgradeDamageValue.Pierce, Item))
 			Stats.AddItem(Item);
 
 		// Shred --------------------------------------------------------------------
 		Item.Label = class'XLocalizedData'.default.ShredLabel;
 		Item.Value="";
-
-		OwnerState = XComGameState_Unit(`XCOMHISTORY.GetGameStateForObjectID(OwnerStateObject.ObjectID));
+		
 		if (`GETMCMVAR(SHREDDER_AS_BONUS) && OwnerState.HasSoldierAbility('Shredder') && WeaponTemplate.InventorySlot==eInvSlot_PrimaryWeapon)
 		{
 			Switch(WeaponTemplate.WeaponTech)
 			{
 				case('magnetic'):
-					MinUpgradeDamage.Shred += class'X2Effect_Shredder'.default.MagneticShred;
+					UpgradeDamageValue.Shred += class'X2Effect_Shredder'.default.MagneticShred;
 					break;
 				case('beam'):
-					MinUpgradeDamage.Shred += class'X2Effect_Shredder'.default.BeamShred;
+					UpgradeDamageValue.Shred += class'X2Effect_Shredder'.default.BeamShred;
 					break;
 				default:
-					MinUpgradeDamage.Shred += class'X2Effect_Shredder'.default.ConventionalShred;
+					UpgradeDamageValue.Shred += class'X2Effect_Shredder'.default.ConventionalShred;
 			}
 		}
-
-		if (PopulateWeaponStat(WeaponTemplate.BaseDamage.Shred, MinUpgradeDamage.Shred!=0, MinUpgradeDamage.Shred, Item))
+		
+		if (PopulateWeaponStat(WeaponTemplate.BaseDamage.Shred, UpgradeDamageValue.Shred!=0, UpgradeDamageValue.Shred, Item))
 			Stats.AddItem(Item);
 
 		// Rupture --------------------------------------------------------------------
 		Item.Label = Caps(Localize("BulletShred X2AbilityTemplate", "LocFriendlyName", "XComGame"));
 		Item.Value="";
-		if (PopulateWeaponStat(DamageValue.Rupture, MinUpgradeDamage.Rupture!=0, MinUpgradeDamage.Rupture, Item))
+		if (PopulateWeaponStat(DamageValue.Rupture, UpgradeDamageValue.Rupture!=0, UpgradeDamageValue.Rupture, Item))
 			Stats.AddItem(Item);
 	}
 							
