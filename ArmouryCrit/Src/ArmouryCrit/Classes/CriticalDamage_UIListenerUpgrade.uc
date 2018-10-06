@@ -11,6 +11,8 @@ event OnInit(UIScreen Screen)
 {
 	local UIArmory_WeaponUpgrade UpgradeScreen;
 
+	//`log(`showvar(self));
+	//`log(`showvar(Screen));
 	UpgradeScreen=UIArmory_WeaponUpgrade(Screen);
 	UpgradeScreen.WeaponStats.Remove();
 	UpgradeScreen.WeaponStats = UpgradeScreen.Spawn(class'UIArmory_WeaponUpgradeStatsCrit', UpgradeScreen).InitStats('weaponStatsMC', UpgradeScreen.WeaponRef);

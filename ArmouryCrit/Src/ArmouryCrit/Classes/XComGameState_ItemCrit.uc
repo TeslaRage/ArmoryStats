@@ -25,6 +25,7 @@ var localized string CriticalDamageLabel;
 static function XComGameState_Item CreateProxy(XComGameState_Item kItem, optional StateObjectReference UnitRef)
 {
 	local XComGameState_ItemCrit ProxykItem;
+
 	if (kItem==none)
 		return kItem;
 	ProxykItem=new class 'XComGameState_ItemCrit';

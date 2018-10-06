@@ -7,6 +7,8 @@ event OnInit(UIScreen Screen)
 {
 	local UIArmory_LoadoutItemTooltip ToolTip;
 
+	//`log(`showvar(self));
+	//`log(`showvar(Screen));
 	LoadOutScreen=UIArmory_Loadout(Screen);
 	ToolTip=LoadOutScreen.InfoTooltip;
 	OriginalRequestItem=ToolTip.RequestItem;

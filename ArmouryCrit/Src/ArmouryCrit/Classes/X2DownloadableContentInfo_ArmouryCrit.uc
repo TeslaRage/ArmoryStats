@@ -77,12 +77,23 @@ var array<X2Action> ExecutingActions;
 /// <summary>
 /// Called after the Templates have been created (but before they are validated) while this DLC / Mod is installed.
 /// </summary>
+
 static event OnPostTemplatesCreated()
 {
 	CriticalDamage_UIListener(class'Engine'.static.
-		FindClassDefaultObject("CriticalDamage_UIListener")).ScreenClass=class'UIArmory_Loadout';
+		FindClassDefaultObject("CriticalDamage_UIListener")).ScreenClass=class<UIScreen>(GetOverrideClass('UIArmory_Loadout'));
 	CriticalDamage_UIListenerUpgrade(class'Engine'.static.
-		FindClassDefaultObject("CriticalDamage_UIListener")).ScreenClass=class'UIArmory_WeaponUpgrade';
+		FindClassDefaultObject("CriticalDamage_UIListenerUpgrade")).ScreenClass=class<UIScreen>(GetOverrideClass('UIArmory_WeaponUpgrade'));
+}
+
+static function class GetOverrideClass(name ClassName)
+{
+	local int Index;
+
+	Index=class'Engine'.default.ModClassOverrides.Find('BaseGameClass', ClassName);
+	if (Index!=INDEX_NONE)
+		ClassName=class'Engine'.default.ModClassOverrides[Index].ModClass;
+	return class'Engine'.static.FindClassType(string(ClassName));
 }
 
 /// <summary>
