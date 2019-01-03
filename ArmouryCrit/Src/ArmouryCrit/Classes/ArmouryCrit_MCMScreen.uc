@@ -19,6 +19,7 @@ var localized string GroupHeader;
 Insert `MCM_API_Auto????Vars macros here
 ***************************************/
 `MCM_API_AutoCheckBoxVars(SHREDDER_AS_BONUS);
+`MCM_API_AutoCheckBoxVars(WEAKPOINTS_AS_BONUS);
 
 `include(ArmouryCrit\Src\ModConfigMenuAPI\MCM_API_CfgHelpers.uci)
 
@@ -26,6 +27,7 @@ Insert `MCM_API_Auto????Vars macros here
 Insert `MCM_API_Auto????Fns and MCM_API_AutoButtonHandler macros here
 ********************************************************************/
 `MCM_API_AutoCheckBoxFns(SHREDDER_AS_BONUS);
+`MCM_API_AutoCheckBoxFns(WEAKPOINTS_AS_BONUS, 2);
 
 event OnInit(UIScreen Screen)
 {
@@ -51,6 +53,7 @@ simulated function ClientModCallback(MCM_API_Instance ConfigAPI, int GameMode)
 	MCM_API_AutoAdd??????? Macro's go here
 ********************************************************/
 	`MCM_API_AutoAddCheckBox(Group, SHREDDER_AS_BONUS);
+	`MCM_API_AutoAddCheckBox(Group, WEAKPOINTS_AS_BONUS);
 
 	Page.ShowSettings();
 }
@@ -61,6 +64,7 @@ simulated function LoadSavedSettings()
 	Use GETMCMVAR macro to assign values to the config variables here
 ************************************************************************/
 	SHREDDER_AS_BONUS=`GETMCMVAR(SHREDDER_AS_BONUS);
+	WEAKPOINTS_AS_BONUS=`GETMCMVAR(WEAKPOINTS_AS_BONUS);
 }
 
 simulated function ResetButtonClicked(MCM_API_SettingsPage Page)
@@ -69,6 +73,7 @@ simulated function ResetButtonClicked(MCM_API_SettingsPage Page)
 	MCM_API_AutoReset macros go here
 ********************************************************/
 	`MCM_API_AutoReset(SHREDDER_AS_BONUS);
+	`MCM_API_AutoReset(WEAKPOINTS_AS_BONUS);
 }
 
 

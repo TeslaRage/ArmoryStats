@@ -36,6 +36,7 @@ static function XComGameState_Item CreateProxy(XComGameState_Item kItem, optiona
 	ProxykItem.ProxyTemplate.RealTemplate= ProxykItem.m_ItemTemplate;
 	ProxykItem.ProxyTemplate.ObjectID=kItem.ObjectID;
 	ProxykItem.ProxyTemplate.WeaponTech=X2WeaponTemplate(ProxykItem.m_ItemTemplate).WeaponTech;
+
 	return ProxykItem;
 }
 
@@ -186,7 +187,12 @@ simulated function array<UISummary_ItemStat> GetUISummary_WeaponStats(optional X
 	local delegate<X2StrategyGameRulesetDataStructures.SpecialRequirementsDelegate> ShouldStatDisplayFn;
 	local int Index, EffectDamage;
 	local XComGameState_Unit OwnerState;
-	local XComOnlineEventMgr EventManager;
+	local X2StrategyElementTemplate CHVersion;
+	local XComGameState_HeadquartersResistance ResHQ;
+	local XComGameStateHistory History;
+	local array<StateObjectReference> PolicyCards;
+	local StateObjectReference PolicyRef;
+	local XComGameState_StrategyCard PolicyState;
 
 	// Safety check: you need to be a weapon to use this. 
 	WeaponTemplate = X2WeaponTemplate(m_ItemTemplate);
@@ -200,16 +206,13 @@ simulated function array<UISummary_ItemStat> GetUISummary_WeaponStats(optional X
 	// Damage-----------------------------------------------------------------------
 	if (!WeaponTemplate.bHideDamageStat)
 	{
-
-		EventManager = `ONLINEEVENTMGR;
-		for(Index = EventManager.GetNumDLC() - 1; Index >= 0; Index--)
+		CHVersion=class'X2StrategyElementTemplateManager'.static.GetStrategyElementTemplateManager().FindStrategyElementTemplate('CHXComGameVersion');
+		if(CHVersion!=none)
 		{
-			if(EventManager.GetDLCNames(Index)=='X2WOTCCommunityHighlander')
-			{
-				UpgradeDamageValue=UpgradeStats.DamageValue;
+			UpgradeDamageValue=UpgradeStats.DamageValue;
+			`log(`showvar(CHXComGameVersionTemplate(CHVersion).GetVersionNumber()));
+			If(CHXComGameVersionTemplate(CHVersion).GetVersionNumber()<=100160000)
 				UpgradeStats.Damage+=UpgradeDamageValue.Damage;
-				break;
-			}
 		}
 
 		OwnerState = XComGameState_Unit(`XCOMHISTORY.GetGameStateForObjectID(OwnerStateObject.ObjectID));
@@ -309,8 +312,8 @@ simulated function array<UISummary_ItemStat> GetUISummary_WeaponStats(optional X
 		else if (UpgradeStats.Damage!=0)
 			Item.Value $= AddStatModifier(false, "", UpgradeStats.Damage);
 
-
-		Stats.AddItem(Item);
+		if (Item.Value!="")
+			Stats.AddItem(Item);
 		//TODO: Item.ValueState = bIsDamageModified ? eUIState_Good : eUIState_Normal;
 
 		// CritDamage-----------------------------------------------------------------------
@@ -345,7 +348,32 @@ simulated function array<UISummary_ItemStat> GetUISummary_WeaponStats(optional X
 					UpgradeDamageValue.Shred += class'X2Effect_Shredder'.default.ConventionalShred;
 			}
 		}
-		
+		if(`GETMCMVAR(WEAKPOINTS_AS_BONUS) && WeaponTemplate.BaseDamage.Shred + UpgradeDamageValue.Shred >0)
+		{
+			History=`XCOMHISTORY;
+			ResHQ = XComGameState_HeadquartersResistance(History.GetSingleGameStateObjectForClass(class'XComGameState_HeadquartersResistance', true));
+
+			if (ResHQ != none)
+			{
+				PolicyCards = ResHQ.GetAllPlayedCards( true );
+
+				foreach PolicyCards( PolicyRef )
+				{
+					if (PolicyRef.ObjectID == 0)
+						continue;
+
+					PolicyState = XComGameState_StrategyCard(History.GetGameStateForObjectID(PolicyRef.ObjectID));
+					`assert( PolicyState != none );
+
+					if(PolicyState.GetMyTemplateName()=='ResCard_WeakPoints')
+					{
+						UpgradeDamageValue.Shred += class'X2StrategyElement_XpackResistanceActions'.static.GetValueWeakPoints();
+						break;
+					}
+				}
+			}
+		}
+
 		if (PopulateWeaponStat(WeaponTemplate.BaseDamage.Shred, UpgradeDamageValue.Shred!=0, UpgradeDamageValue.Shred, Item))
 			Stats.AddItem(Item);
 

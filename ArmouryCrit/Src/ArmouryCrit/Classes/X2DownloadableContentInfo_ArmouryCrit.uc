@@ -78,6 +78,8 @@ var array<X2Action> ExecutingActions;
 /// Called after the Templates have been created (but before they are validated) while this DLC / Mod is installed.
 /// </summary>
 
+`include(ArmouryCrit\Src\ModConfigMenuAPI\MCM_API_CfgHelpers.uci)
+
 static event OnPostTemplatesCreated()
 {
 	CriticalDamage_UIListener(class'Engine'.static.
