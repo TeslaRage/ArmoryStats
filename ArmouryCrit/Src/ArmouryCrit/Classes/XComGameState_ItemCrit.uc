@@ -5,9 +5,8 @@
 //-----------------------------------------------------------
 // WARNING!! Live Proxy, handle with care! If any of the non-
 // overriden methods or properties not setup in OnCreation()
-// are accessed, BAD THINGS will happen, and God Forbid it
-// ever  actually be commited to a XComGameState!!
-// (Or fed after midnight...)
+// are accessed, BAD THINGS will (probably) happen!
+// (Don't feed after midnight...)
 //-----------------------------------------------------------
 
 class XComGameState_ItemCrit extends XComGameState_Item;

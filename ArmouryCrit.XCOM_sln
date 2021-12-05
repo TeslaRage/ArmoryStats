@@ -11,10 +11,10 @@ Global
 		Default|XCOM 2 = Default|XCOM 2
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{557537CB-5F9F-4703-A42E-E400E1907F5A}.Default|Highlander.ActiveCfg = Highlander|XCOM 2
-		{557537CB-5F9F-4703-A42E-E400E1907F5A}.Default|Highlander.Build.0 = Highlander|XCOM 2
-		{557537CB-5F9F-4703-A42E-E400E1907F5A}.Default|XCOM 2.ActiveCfg = Highlander|XCOM 2
-		{557537CB-5F9F-4703-A42E-E400E1907F5A}.Default|XCOM 2.Build.0 = Highlander|XCOM 2
+		{557537CB-5F9F-4703-A42E-E400E1907F5A}.Default|Highlander.ActiveCfg = Default|XCOM 2
+		{557537CB-5F9F-4703-A42E-E400E1907F5A}.Default|Highlander.Build.0 = Default|XCOM 2
+		{557537CB-5F9F-4703-A42E-E400E1907F5A}.Default|XCOM 2.ActiveCfg = Default|XCOM 2
+		{557537CB-5F9F-4703-A42E-E400E1907F5A}.Default|XCOM 2.Build.0 = Default|XCOM 2
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
