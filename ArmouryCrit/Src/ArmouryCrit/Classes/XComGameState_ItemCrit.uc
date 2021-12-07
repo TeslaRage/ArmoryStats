@@ -373,6 +373,38 @@ simulated function array<UISummary_ItemStat> GetUISummary_WeaponStats(optional X
 			}
 		}
 
+		foreach RealkItem.m_arrWeaponUpgradeTemplates(PreviewUpgradeStats)
+		{
+			foreach PreviewUpgradeStats.BonusAbilities(AbilityName)
+			{
+				AbilityTemplate=AbilityManager.FindAbilityTemplate(AbilityName);
+				if ( X2AbilityTrigger_UnitPostBeginPlay(AbilityTemplate.AbilityTriggers[0])!=none
+					&& X2AbilityTarget_Self(AbilityTemplate.AbilityTargetStyle)!=none )
+				{
+					AbilityTestState.OnCreation(AbilityTemplate);
+					TestEffectParams.AbilityInputContext.AbilityTemplateName = AbilityName;
+					foreach AbilityTemplate.AbilityShooterEffects(Effect)
+					{
+						PersistentEffect = X2Effect_Persistent(Effect);
+						if (PersistentEffect!=none)
+						{
+							TestEffectParams.AbilityResultContext.HitResult = eHit_Success;
+							UpgradeDamageValue.Shred += PersistentEffect.GetExtraShredValue(EffectTestState, none, none, AbilityTestState, TestEffectParams);
+						}
+					}
+					foreach AbilityTemplate.AbilityTargetEffects(Effect)
+					{
+						PersistentEffect = X2Effect_Persistent(Effect);
+						if (PersistentEffect!=none)
+						{
+							TestEffectParams.AbilityResultContext.HitResult = eHit_Success;
+							UpgradeDamageValue.Shred += PersistentEffect.GetExtraShredValue(EffectTestState, none, none, AbilityTestState, TestEffectParams);
+						}
+					}
+				}
+			}
+		}
+
 		if (PopulateWeaponStat(WeaponTemplate.BaseDamage.Shred, UpgradeDamageValue.Shred!=0, UpgradeDamageValue.Shred, Item))
 			Stats.AddItem(Item);
 
